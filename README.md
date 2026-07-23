@@ -14,21 +14,32 @@ Server starts on `http://localhost:8080`.
 
 ## Endpoints
 
-**`GET /tasks`** — returns all tasks, sorted by ID.
-→ `200 OK`, e.g. `[{"id":1,"title":"update my gaming console","done":false}]`
+### GET /tasks
+Returns all tasks, sorted by ID.
 
-**`POST /tasks`** — creates a new task.
-Request body: `{"title": "update my gaming console"}`
-→ `201 Created`, returns the created task.
-Errors: `400` malformed JSON, `400` missing/empty title.
+- **Response:** `200 OK`
+- **Example:** `[{"id":1,"title":"update my gaming console","done":false}]`
 
-**`PATCH /tasks/{id}`** — marks a task complete. No request body.
-→ `200 OK`, returns the updated task.
-Errors: `400` invalid ID format, `404` task not found.
+### POST /tasks
+Creates a new task.
 
-**`DELETE /tasks/{id}`** — deletes a task. No request body.
-→ `204 No Content`, empty body.
-Errors: `400` invalid ID format, `404` task not found.
+- **Request body:** `{"title": "update my gaming console"}`
+- **Response:** `201 Created`
+- **Example:** `{"id":1,"title":"update my gaming console","done":false}`
+- **Errors:** `400` — invalid JSON or empty title
+
+### PATCH /tasks/{id}
+Marks a task complete. No request body.
+
+- **Response:** `200 OK`
+- **Example:** `{"id":1,"title":"update my gaming console","done":true}`
+- **Errors:** `400` — invalid ID · `404` — task not found
+
+### DELETE /tasks/{id}
+Deletes a task. No request body.
+
+- **Response:** `204 No Content`, empty body
+- **Errors:** `400` — invalid ID · `404` — task not found
 
 All errors return: `{"error": "description"}`
 
