@@ -2,12 +2,17 @@ package main
 
 import (
 	"cmp"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"os"
 	"slices"
 	"strconv"
 	"sync"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type Task struct {
@@ -42,7 +47,7 @@ func GetTasks(w http.ResponseWriter, r *http.Request) {
 	for _, task := range tasks {
 		taskList = append(taskList, task)
 	}
-	slices.SortFunc(taskList, func(a, b Task) int  {
+	slices.SortFunc(taskList, func(a, b Task) int {
 		return cmp.Compare(a.ID, b.ID)
 	})
 	w.Header().Set("Content-Type", "application/json")
@@ -111,6 +116,20 @@ func DeleteTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	password := os.Getenv("DB_PASSWORD")
+	urlEncPassword := url.QueryEscape(password)
+	db, err := sql.Open("pgx", "postgres://postgres:" + urlEncPassword + "@localhost:5432/task_manager")
+	if err != nil {
+		fmt.Println("Invalid database configuration")
+		return
+	}
+
+	err = db.Ping()
+	if err != nil {
+		fmt.Println("Unable to connect to database:", err)
+		return
+	}
+
 	http.HandleFunc("GET /tasks", GetTasks)
 	http.HandleFunc("POST /tasks", PostTask)
 	http.HandleFunc("PATCH /tasks/{id}", PatchTask)
