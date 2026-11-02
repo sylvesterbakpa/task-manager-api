@@ -73,8 +73,8 @@ func TestGetTasks_Success(t *testing.T) {
 		AddRow(1, "Buy milk", false).
 		AddRow(2, "Walk dog", true)
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, title, done FROM tasks WHERE user_id = $1 ORDER BY id")).
-		WithArgs(1).
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, title, done FROM tasks WHERE user_id = $1 ORDER BY id LIMIT $2 OFFSET $3")).
+		WithArgs(1, 20, 0).
 		WillReturnRows(rows)
 
 	rec := httptest.NewRecorder()
@@ -110,8 +110,8 @@ func TestGetTasks_DBError(t *testing.T) {
 
 	db = mockDB
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, title, done FROM tasks WHERE user_id = $1 ORDER BY id")).
-		WithArgs(1).
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, title, done FROM tasks WHERE user_id = $1 ORDER BY id LIMIT $2 OFFSET $3")).
+		WithArgs(1, 20, 0).
 		WillReturnError(errors.New("connection lost"))
 
 	rec := httptest.NewRecorder()
@@ -145,8 +145,8 @@ func TestGetTasks_Scan(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"id", "title", "done"}).
 		AddRow("not-a-number", "Buy milk", false)
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, title, done FROM tasks WHERE user_id = $1 ORDER BY id")).
-		WithArgs(1).
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, title, done FROM tasks WHERE user_id = $1 ORDER BY id LIMIT $2 OFFSET $3")).
+		WithArgs(1, 20, 0).
 		WillReturnRows(rows)
 
 	rec := httptest.NewRecorder()
@@ -182,8 +182,8 @@ func TestGetTasks_RowsErr(t *testing.T) {
 		AddRow(2, "Walk dog", true).
 		RowError(1, errors.New("connection dropped"))
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, title, done FROM tasks WHERE user_id = $1 ORDER BY id")).
-		WithArgs(1).
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, title, done FROM tasks WHERE user_id = $1 ORDER BY id LIMIT $2 OFFSET $3")).
+		WithArgs(1, 20, 0).
 		WillReturnRows(rows)
 
 	rec := httptest.NewRecorder()
@@ -216,8 +216,8 @@ func TestGetTasks_NoTasks(t *testing.T) {
 
 	rows := sqlmock.NewRows([]string{"id", "title", "done"})
 
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, title, done FROM tasks WHERE user_id = $1 ORDER BY id")).
-		WithArgs(1).
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, title, done FROM tasks WHERE user_id = $1 ORDER BY id LIMIT $2 OFFSET $3")).
+		WithArgs(1, 20, 0).
 		WillReturnRows(rows)
 
 	rec := httptest.NewRecorder()
@@ -238,6 +238,131 @@ func TestGetTasks_NoTasks(t *testing.T) {
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unmet mock expectations: %v", err)
+	}
+}
+
+func TestGetTasks_Pagination(t *testing.T) {
+	mockDB, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create mock DB: %v", err)
+	}
+	defer mockDB.Close()
+
+	db = mockDB
+
+	rows := sqlmock.NewRows([]string{"id", "title", "done"}).
+	AddRow(2, "Test 1", false).
+	AddRow(3, "Test 2", true)
+
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, title, done FROM tasks WHERE user_id = $1 ORDER BY id LIMIT $2 OFFSET $3")).
+	WithArgs(1, 2, 1).
+	WillReturnRows(rows)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/tasks?limit=2&offset=1", nil)
+	req = reqContext(req, 1)
+	
+	GetTasks(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected %v, got %v", http.StatusOK, rec.Code)
+	}
+
+	if !strings.Contains(rec.Body.String(), "Test 1") {
+		t.Errorf("expected body to have %v, got: %v", "Test 1", rec.Body.String())
+	}
+
+	if !strings.Contains(rec.Body.String(), "Test 2") {
+		t.Errorf("expected body to have %v, got: %v", "Test 2", rec.Body.String())
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations %v", err)
+	}
+}
+
+func TestGetTasks_InvalidPagination(t *testing.T) {
+	tests := []struct{
+		name string
+		url string
+		status int
+		message string
+	}{
+		{"limit not a number", "/tasks?limit=abc", http.StatusBadRequest, "limit must"},
+		{"limit zero", "/tasks?limit=0", http.StatusBadRequest, "limit must"},
+		{"limit negative", "/tasks?limit=-5", http.StatusBadRequest, "limit must"},
+		{"limit over the max", "/tasks?limit=101", http.StatusBadRequest, "limit must"},
+		{"offset not a number", "/tasks?offset=abc", http.StatusBadRequest, "offset must"},
+		{"offset negative", "/tasks?offset=-1", http.StatusBadRequest, "offset must"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, test.url, nil)
+			req = reqContext(req, 1)
+
+			GetTasks(rec, req)
+
+			if rec.Code != test.status {
+				t.Errorf("expected %v, got %v", test.status, rec.Code)
+			}
+
+			if !strings.Contains(rec.Body.String(), test.message) {
+				t.Errorf("expected body to have %v, got %v", test.message, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestGetTasks_ValidPagination(t *testing.T) {
+	tests := []struct{
+		name string
+		url string
+		limit int
+		offset int
+		status int
+	}{
+		{"minimum limit", "/tasks?limit=1", 1, 0, http.StatusOK},
+		{"maximum limit", "/tasks?limit=100", 100, 0, http.StatusOK},
+		{"explicit zero offset", "/tasks?offset=0", 20, 0, http.StatusOK},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mockDB, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("unable to create mock DB: %v", err)
+			}
+			defer mockDB.Close()
+
+			db = mockDB
+
+			rows := sqlmock.NewRows([]string{"id", "title", "done"})
+
+			mock.ExpectQuery(regexp.QuoteMeta("SELECT id, title, done FROM tasks WHERE user_id = $1 ORDER BY id LIMIT $2 OFFSET $3")).
+			WithArgs(1, test.limit, test.offset).
+			WillReturnRows(rows)
+
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, test.url, nil)
+			req = reqContext(req, 1)
+
+			GetTasks(rec, req)
+
+			if rec.Code != test.status {
+				t.Errorf("expected %v, got %v", test.status, rec.Code)
+			}
+
+			expected := "[]\n"
+			if actual := rec.Body.String(); actual != expected {
+				t.Errorf("expected body %v, got %v", expected, actual)
+			}
+
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("unmet expectations %v", err)
+			}
+		})
 	}
 }
 
