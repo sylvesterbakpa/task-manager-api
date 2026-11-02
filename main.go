@@ -85,18 +85,48 @@ func capitalizeTitle(title string) string {
 
 func GetTasks(w http.ResponseWriter, r *http.Request) {
 	taskList := []Task{}
+	const defaultLimit string = "20"
+	const minLimit int = 1
+	const maxLimit int = 100
+	const defaultOffset string = "0"
+	const minOffset int = 0
+
 	userID, ok := r.Context().Value(userIDKey).(int)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "Invalid credentials")
 		return
 	}
+
+	limitString := r.URL.Query().Get("limit")
+	if limitString == "" {
+		limitString = defaultLimit
+	}
+
+	limit, err := strconv.Atoi(limitString)
+	if err != nil || limit < minLimit || limit > maxLimit {
+		writeError(w, http.StatusBadRequest, "limit must be a whole number between 1 and 100")
+		return
+	}
+
+	offsetString := r.URL.Query().Get("offset")
+	if offsetString == "" {
+		offsetString = defaultOffset
+	}
+	offset, err := strconv.Atoi(offsetString)
+	if err != nil || offset < minOffset {
+		writeError(w, http.StatusBadRequest, "offset must be a whole number of 0 or greater")
+		return
+	}
+
 	taskQuery := `
 	SELECT id, title, done 
 	FROM tasks 
 	WHERE user_id = $1 
-	ORDER BY id;
+	ORDER BY id 
+	LIMIT $2
+	OFFSET $3;
 	`
-	taskRows, err := db.Query(taskQuery, userID)
+	taskRows, err := db.Query(taskQuery, userID, limit, offset)
 	if err != nil {
 		fmt.Println("Query failed:", err)
 		writeError(w, http.StatusInternalServerError, "Failed to retrieve tasks")

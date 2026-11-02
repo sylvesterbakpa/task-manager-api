@@ -151,7 +151,9 @@ Returns user ID and email.
 
 ### `GET /tasks`
 
-Returns all tasks belonging to an authorized user, sorted by ID. It returns [] if there are no tasks for the logged-in user. A user cannot see another user's task(s). It requires the header to have `Authorization: Bearer <token>`
+Returns all tasks belonging to an authorized user, sorted by ID. It returns [] if there are no tasks for the logged-in user. It supports pagination, where limit defaults to 20 and must be between 1 and 100, and offset defaults to 0 and must be 0 or greater. It also returns [] when offset is past the last task (say, a user with 3 tasks sends offset=10, they get []). A user cannot see another user's task(s). It requires the header to have `Authorization: Bearer <token>`
+
+**Request:** `GET /tasks?limit=2&offset=1`
 
 **Response:** `200 OK`
 
@@ -160,8 +162,13 @@ Returns all tasks belonging to an authorized user, sorted by ID. It returns [] i
 ```json
 [
   {
-    "id": 1,
+    "id": 2,
     "title": "Update my gaming console",
+    "done": false
+  },
+  {
+    "id": 3,
+    "title": "Go to the gym",
     "done": false
   }
 ]
@@ -169,12 +176,13 @@ Returns all tasks belonging to an authorized user, sorted by ID. It returns [] i
 
 **Errors:**
 
+- `400 Bad Request` — limit must be a whole number between 1 and 100; offset must be a whole number of 0 or greater
 - `401 Unauthorized` — see [Authentication errors](#authentication-errors)
 - `500 Internal Server Error` — failed to retrieve tasks
 
 ### `POST /tasks`
 
-Creates a new task for an authorized user. A user cannot create a task for another user. It requires the header to have `Authorization: Bearer <token>`
+Creates a new task for an authorized user. A user cannot create a task for another user. Titles do not need to be unique. It requires the header to have `Authorization: Bearer <token>`
 
 **Request body:**
 
@@ -307,7 +315,7 @@ curl.exe -X POST http://localhost:8080/tasks -H "Authorization: Bearer <the_toke
 ### `GET /tasks`
 
 ```powershell
-curl.exe http://localhost:8080/tasks -H "Authorization: Bearer <the_token_you_got_when_you_logged_in>"
+curl.exe "http://localhost:8080/tasks?limit=2&offset=1" -H "Authorization: Bearer <the_token_you_got_when_you_logged_in>"
 ```
 
 ### `PATCH /tasks/{id}`
@@ -328,8 +336,7 @@ Task data is stored persistently in PostgreSQL.
 
 ## Known Limitations
 
-- No duplicate-title checking.
-- No pagination on `GET /tasks`.
+- Pagination uses offsets, so if a task is added or deleted while a client is paging through results, the client may skip a task or see one twice.
 - There is no rate limiting on login.
 - Tokens can’t be revoked before they expire.
 - Password strength is checked only by length.
