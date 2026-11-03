@@ -157,6 +157,8 @@ Returns all tasks belonging to an authorized user, sorted by ID. It returns [] i
 
 **Response:** `200 OK`
 
+**Response headers:** `Total-Task-Count`. This is the total number of tasks a user owns, which should not be mistaken for the number on the current page. For example, a user with 3 tasks who asks for `limit=2` gets 2 tasks in the body and 3 in the header. Check the curl example section for GET /tasks below to see how to get it.
+
 **Example response:**
 
 ```json
@@ -315,8 +317,10 @@ curl.exe -X POST http://localhost:8080/tasks -H "Authorization: Bearer <the_toke
 ### `GET /tasks`
 
 ```powershell
-curl.exe "http://localhost:8080/tasks?limit=2&offset=1" -H "Authorization: Bearer <the_token_you_got_when_you_logged_in>"
+curl.exe -i "http://localhost:8080/tasks?limit=2&offset=1" -H "Authorization: Bearer <the_token_you_got_when_you_logged_in>"
 ```
+
+**Note:** Add the `-i` flag to see the `Total-Task-Count` header.
 
 ### `PATCH /tasks/{id}`
 
