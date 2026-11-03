@@ -73,9 +73,16 @@ func TestGetTasks_Success(t *testing.T) {
 		AddRow(1, "Buy milk", false).
 		AddRow(2, "Walk dog", true)
 
+	row := sqlmock.NewRows([]string{"total-count"}).
+		AddRow(2)
+
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, title, done FROM tasks WHERE user_id = $1 ORDER BY id LIMIT $2 OFFSET $3")).
 		WithArgs(1, 20, 0).
 		WillReturnRows(rows)
+
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(id) FROM tasks WHERE user_id = $1")).
+		WithArgs(1).
+		WillReturnRows(row)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/tasks", nil)
@@ -94,6 +101,11 @@ func TestGetTasks_Success(t *testing.T) {
 
 	if !strings.Contains(rec.Body.String(), "Walk dog") {
 		t.Errorf("expected response body to contain %q, got: %s", "Walk dog", rec.Body.String())
+	}
+
+	expected := "2"
+	if actual := rec.Header().Get("Total-Task-Count"); actual != expected {
+		t.Errorf("expected header to be %v, got %v", expected, actual)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -216,9 +228,16 @@ func TestGetTasks_NoTasks(t *testing.T) {
 
 	rows := sqlmock.NewRows([]string{"id", "title", "done"})
 
+	row := sqlmock.NewRows([]string{"total-count"}).
+	AddRow(0)
+
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, title, done FROM tasks WHERE user_id = $1 ORDER BY id LIMIT $2 OFFSET $3")).
 		WithArgs(1, 20, 0).
 		WillReturnRows(rows)
+
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(id) FROM tasks WHERE user_id = $1")).
+		WithArgs(1).
+		WillReturnRows(row)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/tasks", nil)
@@ -234,6 +253,11 @@ func TestGetTasks_NoTasks(t *testing.T) {
 	expected := "[]\n"
 	if actual := rec.Body.String(); actual != expected {
 		t.Errorf("expected body %v, got %v", expected, actual)
+	}
+
+	expectedCount := "0"
+	if actual := rec.Header().Get("Total-Task-Count"); actual != expectedCount {
+		t.Errorf("expected header to be %v, got %v", expectedCount, actual)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -254,9 +278,16 @@ func TestGetTasks_Pagination(t *testing.T) {
 	AddRow(2, "Test 1", false).
 	AddRow(3, "Test 2", true)
 
+	row := sqlmock.NewRows([]string{"total-count"}).
+	AddRow(5)
+
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT id, title, done FROM tasks WHERE user_id = $1 ORDER BY id LIMIT $2 OFFSET $3")).
 	WithArgs(1, 2, 1).
 	WillReturnRows(rows)
+
+	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(id) FROM tasks WHERE user_id = $1")).
+	WithArgs(1).
+	WillReturnRows(row)
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/tasks?limit=2&offset=1", nil)
@@ -274,6 +305,11 @@ func TestGetTasks_Pagination(t *testing.T) {
 
 	if !strings.Contains(rec.Body.String(), "Test 2") {
 		t.Errorf("expected body to have %v, got: %v", "Test 2", rec.Body.String())
+	}
+
+	expected := "5"
+	if actual := rec.Header().Get("Total-Task-Count"); actual != expected {
+		t.Errorf("expected header to be %v, got %v", expected, actual)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -340,9 +376,16 @@ func TestGetTasks_ValidPagination(t *testing.T) {
 
 			rows := sqlmock.NewRows([]string{"id", "title", "done"})
 
+			row := sqlmock.NewRows([]string{"total-count"}).
+			AddRow(0)
+
 			mock.ExpectQuery(regexp.QuoteMeta("SELECT id, title, done FROM tasks WHERE user_id = $1 ORDER BY id LIMIT $2 OFFSET $3")).
 			WithArgs(1, test.limit, test.offset).
 			WillReturnRows(rows)
+
+			mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(id) FROM tasks WHERE user_id = $1")).
+			WithArgs(1).
+			WillReturnRows(row)
 
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodGet, test.url, nil)

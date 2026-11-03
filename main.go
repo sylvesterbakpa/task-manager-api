@@ -27,6 +27,10 @@ type Task struct {
 	Done  bool   `json:"done"`
 }
 
+type UserTaskCount struct {
+	TotalCount int `json:"id"`
+}
+
 type CreateTaskInput struct {
 	Title string `json:"title"`
 }
@@ -151,6 +155,16 @@ func GetTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var userTaskCount UserTaskCount
+
+	err = db.QueryRow("SELECT COUNT(id) FROM tasks WHERE user_id = $1", userID).Scan(&userTaskCount.TotalCount)
+	if err != nil {
+		fmt.Println("Count query failed:", err)
+		writeError(w, http.StatusInternalServerError, "Unable to get total number of tasks for this user")
+		return
+	}
+
+	w.Header().Set("Total-Task-Count", strconv.Itoa(userTaskCount.TotalCount))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(taskList)
 }
