@@ -151,13 +151,13 @@ Returns user ID and email.
 
 ### `GET /tasks`
 
-Returns all tasks belonging to an authorized user, sorted by ID. It returns [] if there are no tasks for the logged-in user. It supports pagination, where limit defaults to 20 and must be between 1 and 100, and offset defaults to 0 and must be 0 or greater. It also returns [] when offset is past the last task (say, a user with 3 tasks sends offset=10, they get []). A user cannot see another user's task(s). It requires the header to have `Authorization: Bearer <token>`
+Returns all tasks belonging to an authorized user, sorted by ID. It returns [] if there are no tasks for the logged-in user or if no tasks match the filter. It supports pagination, where limit defaults to 20 and must be between 1 and 100, and offset defaults to 0 and must be 0 or greater. It also returns [] when offset is past the last task (say, a user with 3 tasks sends offset=10, they get []). Users can include an optional done query parameter in the query string, i.e. `done=true` or `done=false`, or they can choose to leave it out altogether. Note that only lowercase `true` and `false` are accepted, and any other value will be rejected with a 400 and a message. A user cannot see another user's task(s). It requires the header to have `Authorization: Bearer <token>`
 
-**Request:** `GET /tasks?limit=2&offset=1`
+**Request:** `GET /tasks?done=false&limit=2&offset=1`
 
 **Response:** `200 OK`
 
-**Response headers:** `Total-Task-Count`. This is the total number of tasks a user owns, which should not be mistaken for the number on the current page. For example, a user with 3 tasks who asks for `limit=2` gets 2 tasks in the body and 3 in the header. Check the curl example section for GET /tasks below to see how to get it.
+**Response headers:** `Total-Task-Count`. This is the number of tasks that match a request's filter. It returns the total number of a user's tasks if the filter is not set. It should not be mistaken for the number on the current page. For example, a user with 4 tasks (assuming 3 of those tasks have a done status of false and the last one is true) who asks for `limit=2` and filters `done=false` gets 2 tasks in the body and 3 in the header. Check the curl example section for GET /tasks below to see how to get it.
 
 **Example response:**
 
@@ -178,7 +178,7 @@ Returns all tasks belonging to an authorized user, sorted by ID. It returns [] i
 
 **Errors:**
 
-- `400 Bad Request` — limit must be a whole number between 1 and 100; offset must be a whole number of 0 or greater
+- `400 Bad Request` — limit must be a whole number between 1 and 100; offset must be a whole number of 0 or greater; done must be true or false
 - `401 Unauthorized` — see [Authentication errors](#authentication-errors)
 - `500 Internal Server Error` — failed to retrieve tasks
 
@@ -317,7 +317,7 @@ curl.exe -X POST http://localhost:8080/tasks -H "Authorization: Bearer <the_toke
 ### `GET /tasks`
 
 ```powershell
-curl.exe -i "http://localhost:8080/tasks?limit=2&offset=1" -H "Authorization: Bearer <the_token_you_got_when_you_logged_in>"
+curl.exe -i "http://localhost:8080/tasks?done=false&limit=2&offset=1" -H "Authorization: Bearer <the_token_you_got_when_you_logged_in>"
 ```
 
 **Note:** Add the `-i` flag to see the `Total-Task-Count` header.
