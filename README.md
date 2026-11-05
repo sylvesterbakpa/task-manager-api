@@ -82,17 +82,17 @@ http://localhost:8080
 
 ## API Endpoints
 
-The flow of interacting with the API is: register, log in, get a token, then send `Authorization: Bearer <token>` on every /tasks request. Tokens expire after 30 minutes.
+The flow of interacting with the API is: register, log in, get a token, then send `Authorization: Bearer <token>` on every `/v1/tasks` request. Tokens expire after 30 minutes. All endpoints live under `/v1`.
 
 ### Authentication errors
 
-Every `/tasks` endpoint requires the header `Authorization: Bearer <token>`. If the token is not accepted, the server responds with `401 Unauthorized`:
+Every `/v1/tasks` endpoint requires the header `Authorization: Bearer <token>`. If the token is not accepted, the server responds with `401 Unauthorized`:
 
 - **Missing or invalid token** — message: `Invalid or missing token`. This covers a missing header, a malformed or tampered token, and a token signed with the wrong key or algorithm.
 - **Expired token** — message: `Token expired, please log in again`. Log in again to get a new token.
 - **Malformed token payload** — message: `Invalid token claims` or `Invalid user ID claim`. The token verified, but its contents were not what the server expects.
 
-### `POST /user`
+### `POST /v1/user`
 
 Returns user ID and email.
 
@@ -121,7 +121,7 @@ Returns user ID and email.
 - `500 Internal Server Error` — server errors
 
 
-### `POST /login`
+### `POST /v1/login`
 
 **Request body:**
 
@@ -149,15 +149,15 @@ Returns user ID and email.
 - `401 Unauthorized` — wrong password or unknown email, with the same message either way. This was done by design as it is important that no one, especially an unauthorized user, should be able to tell the difference for whether an email exists already or not.
 - `500 Internal Server Error` — server errors
 
-### `GET /tasks`
+### `GET /v1/tasks`
 
 Returns all tasks belonging to an authorized user, sorted by ID. It returns [] if there are no tasks for the logged-in user or if no tasks match the filter. It supports pagination, where limit defaults to 20 and must be between 1 and 100, and offset defaults to 0 and must be 0 or greater. It also returns [] when offset is past the last task (say, a user with 3 tasks sends offset=10, they get []). Users can include an optional done query parameter in the query string, i.e. `done=true` or `done=false`, or they can choose to leave it out altogether. Note that only lowercase `true` and `false` are accepted, and any other value will be rejected with a 400 and a message. A user cannot see another user's task(s). It requires the header to have `Authorization: Bearer <token>`
 
-**Request:** `GET /tasks?done=false&limit=2&offset=1`
+**Request:** `GET /v1/tasks?done=false&limit=2&offset=1`
 
 **Response:** `200 OK`
 
-**Response headers:** `Total-Task-Count`. This is the number of tasks that match a request's filter. It returns the total number of a user's tasks if the filter is not set. It should not be mistaken for the number on the current page. For example, a user with 4 tasks (assuming 3 of those tasks have a done status of false and the last one is true) who asks for `limit=2` and filters `done=false` gets 2 tasks in the body and 3 in the header. Check the curl example section for GET /tasks below to see how to get it.
+**Response headers:** `Total-Task-Count`. This is the number of tasks that match a request's filter. It returns the total number of a user's tasks if the filter is not set. It should not be mistaken for the number on the current page. For example, a user with 4 tasks (assuming 3 of those tasks have a done status of false and the last one is true) who asks for `limit=2` and filters `done=false` gets 2 tasks in the body and 3 in the header. Check the curl example section for `GET /v1/tasks` below to see how to get it.
 
 **Example response:**
 
@@ -182,7 +182,7 @@ Returns all tasks belonging to an authorized user, sorted by ID. It returns [] i
 - `401 Unauthorized` — see [Authentication errors](#authentication-errors)
 - `500 Internal Server Error` — failed to retrieve tasks
 
-### `POST /tasks`
+### `POST /v1/tasks`
 
 Creates a new task for an authorized user. A user cannot create a task for another user. Titles do not need to be unique. It requires the header to have `Authorization: Bearer <token>`
 
@@ -214,7 +214,7 @@ Creates a new task for an authorized user. A user cannot create a task for anoth
 
 The title is normalized so that the first character is uppercase and the remaining characters are lowercase.
 
-### `PATCH /tasks/{id}`
+### `PATCH /v1/tasks/{id}`
 
 Marks a task as complete for an authorized user. A user cannot modify a task that belongs to another user. It requires the header to have `Authorization: Bearer <token>`
 
@@ -239,7 +239,7 @@ No request body is required.
 - `404 Not Found` — task not found for both cases of where a task does not exist or belongs to another user. This is a deliberate decision in order to make it impossible for any user to tell that a task already exists for another user. So, they all get the generic "task not found"
 - `500 Internal Server Error` — failed to update task
 
-### `DELETE /tasks/{id}`
+### `DELETE /v1/tasks/{id}`
 
 Deletes a task for an authorized user. A user cannot delete a task that belongs to another user.  It requires the header to have `Authorization: Bearer <token>`
 
@@ -270,7 +270,7 @@ The exact error message depends on the error that occurred.
 
 PowerShell can interfere with inline JSON quoting when using `curl`, so requests with a body can be tested by writing the JSON to a file first. Below is the flow for testing:
 
-### `POST /user`
+### `POST /v1/user`
 
 Create a `body.json` file from PowerShell:
 
@@ -281,10 +281,10 @@ Create a `body.json` file from PowerShell:
 Then send the request:
 
 ```powershell
-curl.exe -X POST http://localhost:8080/user -H "Content-Type: application/json" -d "@body.json"
+curl.exe -X POST http://localhost:8080/v1/user -H "Content-Type: application/json" -d "@body.json"
 ```
 
-### `POST /login`
+### `POST /v1/login`
 
 Create a `body.json` file from PowerShell:
 
@@ -295,12 +295,12 @@ Create a `body.json` file from PowerShell:
 Then send the request:
 
 ```powershell
-curl.exe -X POST http://localhost:8080/login -H "Content-Type: application/json" -d "@body.json"
+curl.exe -X POST http://localhost:8080/v1/login -H "Content-Type: application/json" -d "@body.json"
 ```
 
-> The login response contains a `token`. In every `/tasks` request below, replace the whole placeholder `<the_token_you_got_when_you_logged_in>`, angle brackets included, with that token. Tokens expire after 30 minutes, so log in again if a request returns `401` with an expired-token message.
+> The login response contains a `token`. In every `/v1/tasks` request below, replace the whole placeholder `<the_token_you_got_when_you_logged_in>`, angle brackets included, with that token. Tokens expire after 30 minutes, so log in again if a request returns `401` with an expired-token message.
 
-### `POST /tasks`
+### `POST /v1/tasks`
 
 Create a `body.json` file from PowerShell:
 
@@ -311,27 +311,27 @@ Create a `body.json` file from PowerShell:
 Then send the request:
 
 ```powershell
-curl.exe -X POST http://localhost:8080/tasks -H "Authorization: Bearer <the_token_you_got_when_you_logged_in>" -H "Content-Type: application/json" -d "@body.json"
+curl.exe -X POST http://localhost:8080/v1/tasks -H "Authorization: Bearer <the_token_you_got_when_you_logged_in>" -H "Content-Type: application/json" -d "@body.json"
 ```
 
-### `GET /tasks`
+### `GET /v1/tasks`
 
 ```powershell
-curl.exe -i "http://localhost:8080/tasks?done=false&limit=2&offset=1" -H "Authorization: Bearer <the_token_you_got_when_you_logged_in>"
+curl.exe -i "http://localhost:8080/v1/tasks?done=false&limit=2&offset=1" -H "Authorization: Bearer <the_token_you_got_when_you_logged_in>"
 ```
 
 **Note:** Add the `-i` flag to see the `Total-Task-Count` header.
 
-### `PATCH /tasks/{id}`
+### `PATCH /v1/tasks/{id}`
 
 ```powershell
-curl.exe -X PATCH http://localhost:8080/tasks/1 -H "Authorization: Bearer <the_token_you_got_when_you_logged_in>" 
+curl.exe -X PATCH http://localhost:8080/v1/tasks/1 -H "Authorization: Bearer <the_token_you_got_when_you_logged_in>" 
 ```
 
-### `DELETE /tasks/{id}`
+### `DELETE /v1/tasks/{id}`
 
 ```powershell
-curl.exe -X DELETE http://localhost:8080/tasks/1 -H "Authorization: Bearer <the_token_you_got_when_you_logged_in>" 
+curl.exe -X DELETE http://localhost:8080/v1/tasks/1 -H "Authorization: Bearer <the_token_you_got_when_you_logged_in>" 
 ```
 
 ## Storage
