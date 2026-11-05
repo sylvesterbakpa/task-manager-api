@@ -122,7 +122,16 @@ func GetTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	taskQuery := `
+	doneStatus := r.URL.Query().Get("done")
+
+	if doneStatus != "" && doneStatus != "true" && doneStatus != "false" {
+		writeError(w, http.StatusBadRequest, "done must be true or false.")
+		return
+	}
+
+	wantDone := doneStatus == "true"
+
+	taskQuery1 := `
 	SELECT id, title, done 
 	FROM tasks 
 	WHERE user_id = $1 
@@ -130,7 +139,26 @@ func GetTasks(w http.ResponseWriter, r *http.Request) {
 	LIMIT $2
 	OFFSET $3;
 	`
-	taskRows, err := db.Query(taskQuery, userID, limit, offset)
+
+	taskQuery2 := `
+	SELECT id, title, done 
+	FROM tasks 
+	WHERE user_id = $1
+	AND done = $2
+	ORDER BY id 
+	LIMIT $3
+	OFFSET $4;
+	`
+
+	var taskRows *sql.Rows
+
+	if doneStatus == "" {
+		taskRows, err = db.Query(taskQuery1, userID, limit, offset)
+
+	} else {
+		taskRows, err = db.Query(taskQuery2, userID, wantDone, limit, offset)
+	}
+
 	if err != nil {
 		fmt.Println("Query failed:", err)
 		writeError(w, http.StatusInternalServerError, "Failed to retrieve tasks")
@@ -157,11 +185,20 @@ func GetTasks(w http.ResponseWriter, r *http.Request) {
 
 	var userTaskCount UserTaskCount
 
-	err = db.QueryRow("SELECT COUNT(id) FROM tasks WHERE user_id = $1", userID).Scan(&userTaskCount.TotalCount)
-	if err != nil {
-		fmt.Println("Count query failed:", err)
-		writeError(w, http.StatusInternalServerError, "Unable to get total number of tasks for this user")
-		return
+	if doneStatus == "" {
+		err = db.QueryRow("SELECT COUNT(id) FROM tasks WHERE user_id = $1", userID).Scan(&userTaskCount.TotalCount)
+		if err != nil {
+			fmt.Println("Count query failed:", err)
+			writeError(w, http.StatusInternalServerError, "Unable to get total number of tasks for this user")
+			return
+		}
+	} else {
+		err = db.QueryRow("SELECT COUNT(id) FROM tasks WHERE user_id = $1 AND done = $2", userID, wantDone).Scan(&userTaskCount.TotalCount)
+		if err != nil {
+			fmt.Println("Count query failed:", err)
+			writeError(w, http.StatusInternalServerError, "Unable to get total number of tasks for this user")
+			return
+		}
 	}
 
 	w.Header().Set("Total-Task-Count", strconv.Itoa(userTaskCount.TotalCount))
