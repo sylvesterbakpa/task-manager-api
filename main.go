@@ -515,12 +515,12 @@ func main() {
 		return
 	}
 
-	http.HandleFunc("GET /tasks", RequireAuth(GetTasks))
-	http.HandleFunc("POST /tasks", RequireAuth(PostTask))
-	http.HandleFunc("PATCH /tasks/{id}", RequireAuth(PatchTask))
-	http.HandleFunc("DELETE /tasks/{id}", RequireAuth(DeleteTask))
-	http.HandleFunc("POST /user", PostUser)
-	http.HandleFunc("POST /login", PostLogin)
+	http.HandleFunc("GET /v1/tasks", RequireAuth(GetTasks))
+	http.HandleFunc("POST /v1/tasks", RequireAuth(PostTask))
+	http.HandleFunc("PATCH /v1/tasks/{id}", RequireAuth(PatchTask))
+	http.HandleFunc("DELETE /v1/tasks/{id}", RequireAuth(DeleteTask))
+	http.HandleFunc("POST /v1/user", PostUser)
+	http.HandleFunc("POST /v1/login", PostLogin)
 
 	fmt.Println("server is running")
 	http.ListenAndServe(":8080", nil)
