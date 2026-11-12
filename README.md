@@ -80,6 +80,32 @@ The server starts on:
 http://localhost:8080
 ```
 
+## Running with Docker
+
+Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+
+1. Copy the example environment file and fill in real values. `.env` is never committed.
+
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+
+2. Build and start the API and the database:
+
+   ```powershell
+   docker compose up --build
+   ```
+
+The API is available at `http://localhost:3000`. Port 8080 inside the container is mapped to port 3000 on your machine, so use port 3000 in the curl examples below.
+
+Stop everything with:
+
+```powershell
+docker compose down
+```
+
+Database data is kept in a Docker volume between runs. To delete it as well, use `docker compose down -v`.
+
 ## API Endpoints
 
 The flow of interacting with the API is: register, log in, get a token, then send `Authorization: Bearer <token>` on every `/v1/tasks` request. Tokens expire after 30 minutes. All endpoints live under `/v1`.
